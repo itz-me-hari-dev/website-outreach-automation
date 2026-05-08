@@ -6,6 +6,8 @@ from utils.logger import setup_logger
 
 logger = setup_logger()
 
+REQUEST_TIMEOUT = 30
+
 
 def search_websites(keyword: str, limit: int = 5) -> list:
     """
@@ -50,7 +52,8 @@ def search_websites(keyword: str, limit: int = 5) -> list:
 
     headers = {
         "X-API-KEY": api_key,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
     }
 
     payload = {
@@ -59,20 +62,26 @@ def search_websites(keyword: str, limit: int = 5) -> list:
     }
 
     try:
-        logger.info(f"Searching keyword: {keyword}")
+
+        logger.info(
+            f"Searching keyword: {keyword}"
+        )
 
         response = requests.post(
             url,
             headers=headers,
             json=payload,
-            timeout=30
+            timeout=REQUEST_TIMEOUT
         )
 
         response.raise_for_status()
 
         data = response.json()
 
-        organic_results = data.get("organic", [])
+        organic_results = data.get(
+            "organic",
+            []
+        )
 
         filtered_urls = []
 
@@ -81,7 +90,21 @@ def search_websites(keyword: str, limit: int = 5) -> list:
             "facebook.com",
             "instagram.com",
             "youtube.com",
-            "twitter.com"
+            "twitter.com",
+            "reddit.com"
+        ]
+
+        blocked_keywords = [
+            "/blog/",
+            "top-10",
+            "top-15",
+            "top-20",
+            "best-",
+            "/articles/",
+            "/resources/",
+            "/blog/",
+            "top-10",
+            "best-"
         ]
 
         for result in organic_results:
@@ -91,13 +114,24 @@ def search_websites(keyword: str, limit: int = 5) -> list:
             if not link:
                 continue
 
-            if any(domain in link for domain in blocked_domains):
+            if any(
+                domain in link.lower()
+                for domain in blocked_domains
+            ):
+                continue
+
+            if any(
+                keyword in link.lower()
+                for keyword in blocked_keywords
+            ):
                 continue
 
             filtered_urls.append(link)
 
         logger.info(
-            f"Found {len(filtered_urls)} filtered URLs"
+            f"Found "
+            f"{len(filtered_urls)} "
+            f"filtered URLs"
         )
 
         return filtered_urls
@@ -105,7 +139,8 @@ def search_websites(keyword: str, limit: int = 5) -> list:
     except requests.RequestException as error:
 
         logger.error(
-            f"Serper API request failed: {str(error)}"
+            f"Serper API request failed: "
+            f"{str(error)}"
         )
 
         return []
