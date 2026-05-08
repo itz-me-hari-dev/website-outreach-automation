@@ -3,6 +3,7 @@ import time
 import threading
 
 from anthropic import Anthropic
+
 from concurrent.futures import (
     ThreadPoolExecutor
 )
@@ -23,18 +24,19 @@ email_semaphore = threading.Semaphore(2)
 email_results_lock = threading.Lock()
 
 
-def generate_single_email(
+def generate_email(
     summary_data: dict
-) -> dict:
+) -> str:
     """
     Purpose:
-    Generate personalized outreach email.
+    Generate single personalized
+    outreach email.
 
     Inputs:
     summary_data (dict)
 
     Returns:
-    dict
+    str
     """
 
     api_key = os.getenv(
@@ -42,6 +44,7 @@ def generate_single_email(
     )
 
     if not api_key:
+
         raise ValueError(
             "CLAUDE_API_KEY is missing"
         )
@@ -50,7 +53,9 @@ def generate_single_email(
         api_key=api_key
     )
 
-    url = summary_data.get("url")
+    url = summary_data.get(
+        "url"
+    )
 
     summary = summary_data.get(
         "summary",
@@ -86,27 +91,33 @@ Return:
 Subject line + email body.
 """
 
-    for attempt in range(MAX_RETRIES):
+    for attempt in range(
+        MAX_RETRIES
+    ):
 
         try:
 
             with email_semaphore:
 
                 logger.info(
-                    f"Generating outreach email "
-                    f"for: {url}"
+                    f"Generating outreach "
+                    f"email for: {url}"
                 )
 
-                response = client.messages.create(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=700,
-                    temperature=0.5,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
+                response = (
+                    client.messages.create(
+                        model=(
+                            "claude-sonnet-4-20250514"
+                        ),
+                        max_tokens=700,
+                        temperature=0.5,
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ]
+                    )
                 )
 
                 email_content = (
@@ -118,10 +129,7 @@ Subject line + email body.
                     f"{url}"
                 )
 
-                return {
-                    "url": url,
-                    "email": email_content
-                }
+                return email_content
 
         except Exception as error:
 
@@ -131,16 +139,41 @@ Subject line + email body.
                 f"{url}: {str(error)}"
             )
 
-            time.sleep(RETRY_DELAY)
+            time.sleep(
+                RETRY_DELAY
+            )
 
     logger.error(
-        f"All email generation retries "
-        f"failed for: {url}"
+        f"All email generation "
+        f"retries failed for: {url}"
+    )
+
+    return ""
+
+
+def generate_single_email(
+    summary_data: dict
+) -> dict:
+    """
+    Purpose:
+    Generate single email result.
+
+    Inputs:
+    summary_data (dict)
+
+    Returns:
+    dict
+    """
+
+    email_content = generate_email(
+        summary_data
     )
 
     return {
-        "url": url,
-        "email": ""
+        "url": summary_data.get(
+            "url"
+        ),
+        "email": email_content
     }
 
 
@@ -149,7 +182,8 @@ def generate_multiple_emails(
 ) -> list:
     """
     Purpose:
-    Generate emails concurrently.
+    Generate multiple emails
+    concurrently.
 
     Inputs:
     summaries (list)
@@ -169,9 +203,13 @@ def generate_multiple_emails(
             summaries
         )
 
-        for result in future_results:
+        for result in (
+            future_results
+        ):
 
-            with email_results_lock:
+            with (
+                email_results_lock
+            ):
 
                 generated_emails.append(
                     result
@@ -179,7 +217,8 @@ def generate_multiple_emails(
 
     logger.info(
         f"Generated "
-        f"{len(generated_emails)} emails"
+        f"{len(generated_emails)} "
+        f"emails"
     )
 
     return generated_emails

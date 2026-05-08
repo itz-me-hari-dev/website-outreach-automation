@@ -1,7 +1,10 @@
 from dotenv import load_dotenv
 
 from utils.logger import setup_logger
-from search.search_service import search_websites
+
+from search.search_service import (
+    search_websites
+)
 
 from scraper.scraper_service import (
     scrape_multiple_websites
@@ -12,7 +15,11 @@ from summarizer.summarizer_service import (
 )
 
 from email_generator.email_generator_service import (
-    generate_multiple_emails
+    generate_email
+)
+
+from email_sender.mailgun_service import (
+    EmailSenderService
 )
 
 
@@ -28,21 +35,11 @@ def main():
 
     Returns:
     None
-
-    Flowchart:
-    outreach_flowchart.png
-
-    Sequence Diagram:
-    outreach_sequence_diagram.png
-
-    Errors:
-    None
-
-    Side Effects:
-    - Starts workflow
     """
 
-    logger.info("Application started")
+    logger.info(
+        "Application started"
+    )
 
     keyword = input(
         "Enter search keyword: "
@@ -60,29 +57,25 @@ def main():
         keyword
     )
 
+    if not websites:
+
+        logger.warning(
+            "No websites found"
+        )
+
+        return
+
     print("\nFiltered Websites:\n")
 
     for website in websites:
+
         print(website)
 
-    scraped_data = scrape_multiple_websites(
-        websites
+    scraped_data = (
+        scrape_multiple_websites(
+            websites
+        )
     )
-
-    for item in scraped_data:
-
-        print("\n")
-        print("=" * 50)
-
-        print(
-            f"Website: {item['url']}"
-        )
-
-        print("\nContent Preview:\n")
-
-        print(
-            item["content"][:1000]
-        )
 
     summaries = []
 
@@ -98,39 +91,185 @@ def main():
             summary_result
         )
 
-    for item in summaries:
+    print("\n")
+    print("=" * 60)
 
-        print("\n")
-        print("=" * 50)
-
-        print(
-            f"AI Summary for: "
-            f"{item['url']}"
-        )
-
-        print("\n")
-
-        print(item["summary"])
-
-    generated_emails = (
-        generate_multiple_emails(
-            summaries
-        )
+    print(
+        "COMPANY SUMMARIES"
     )
 
-    for item in generated_emails:
+    print("=" * 60)
+
+    for index, item in enumerate(
+        summaries,
+        start=1
+    ):
 
         print("\n")
-        print("=" * 50)
+        print("=" * 60)
 
         print(
-            f"Generated Email for: "
+            f"{index}. "
             f"{item['url']}"
         )
 
-        print("\n")
+        print("\nSummary:\n")
 
-        print(item["email"])
+        print(
+            item["summary"]
+        )
+
+    print("\n")
+    print("=" * 60)
+
+    total_companies = len(
+        summaries
+    )
+
+    if total_companies == 1:
+
+        choice_prompt = (
+            "\nSelect company "
+            "(1): "
+        )
+
+    else:
+
+        available_options = ",".join(
+
+            str(i)
+
+            for i in range(
+                1,
+                total_companies + 1
+            )
+        )
+
+        choice_prompt = (
+
+            f"\nSelect company "
+            f"({available_options} "
+            f"or all): "
+
+        )
+
+    choice = input(
+        choice_prompt
+    ).strip().lower()
+
+    if (
+        choice == "all"
+        and total_companies > 1
+    ):
+
+        selected_companies = (
+            summaries
+        )
+
+    else:
+
+        try:
+
+            selected_indexes = [
+
+                int(
+                    x.strip()
+                ) - 1
+
+                for x in choice.split(
+                    ","
+                )
+
+            ]
+
+            selected_companies = [
+
+                summaries[i]
+
+                for i in (
+                    selected_indexes
+                )
+
+            ]
+
+        except (
+            ValueError,
+            IndexError
+        ):
+
+            logger.error(
+                "Invalid selection"
+            )
+
+            return
+
+    email_sender = (
+        EmailSenderService()
+    )
+
+    for item in selected_companies:
+
+        print("\n")
+        print("=" * 60)
+
+        print(
+            f"Generating email for:"
+            f" {item['url']}"
+        )
+
+        generated_email = (
+            generate_email(
+                item
+            )
+        )
+
+        print(
+            "\nGenerated Email:\n"
+        )
+
+        print(
+            generated_email
+        )
+
+        response = (
+            email_sender.send_email(
+                subject=(
+                    "Partnership "
+                    "Opportunity"
+                ),
+                body=(
+                    generated_email
+                )
+            )
+        )
+
+        if (
+            response.status_code
+            == 200
+        ):
+
+            logger.info(
+                f"Email sent for "
+                f"{item['url']}"
+            )
+
+            print(
+                "\nEmail sent "
+                "successfully"
+            )
+
+        else:
+
+            logger.error(
+                f"Failed to send "
+                f"email for "
+                f"{item['url']}"
+            )
+
+            print(
+                "\nFailed to send "
+                "email"
+            )
 
 
 if __name__ == "__main__":
